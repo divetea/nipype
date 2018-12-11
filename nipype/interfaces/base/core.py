@@ -494,7 +494,8 @@ class BaseInterface(Interface):
         mon_sp = None
         if enable_rm:
             mon_freq = float(
-                config.get('execution', 'resource_monitor_frequency', 1))
+                config.get('monitoring', 'sample_frequency', 1))
+            iflogger.debug('Monitoring sample_frequency is {}'.format(mon_freq))
             proc_pid = os.getpid()
             iflogger.debug(
                 'Creating a ResourceMonitor on a %s interface, PID=%d.',

@@ -138,6 +138,9 @@ def log_nodes_cb(node, status):
     import logging
     import json
 
+    if isinstance(node.result.runtime, list):
+        return
+
     status_dict = {
         'name': node.name,
         'id': node._id,
@@ -145,8 +148,8 @@ def log_nodes_cb(node, status):
         'finish': getattr(node.result.runtime, 'endTime'),
         'duration': getattr(node.result.runtime, 'duration'),
         'runtime_threads': getattr(node.result.runtime, 'cpu_percent', 'N/A'),
-        'runtime_memory_gb': getattr(node.result.runtime, 'mem_peak_gb',
-                                     'N/A'),
+        'runtime_memory_gb': getattr(node.result.runtime, 'mem_peak_gb', 'N/A'),
+        'prof_dict': getattr(node.result.runtime, 'prof_dict', {}),
         'estimated_memory_gb': node.mem_gb,
         'num_threads': node.n_procs,
     }

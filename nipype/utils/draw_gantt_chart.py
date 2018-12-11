@@ -9,6 +9,7 @@ from __future__ import (print_function, division, unicode_literals,
                         absolute_import)
 
 # Import packages
+import logging
 import sys
 import random
 import datetime
@@ -84,6 +85,16 @@ def create_event_dict(start_time, nodes_list):
     # Return events dictionary
     return events
 
+def parse_time(time_string):
+    return datetime.datetime.strptime(time_string, "%Y-%m-%dT%H:%M:%S.%f")
+
+def convert_percent_to_thread(percentage, threshold=100):
+    """Try to deduce the number of threads from the cpu-percentage.
+    threshold is the percentage over which to assume a new thread."""
+    if percentage % threshold:
+        return percentage / threshold + 1
+    else:
+        return percentage / threshold
 
 def log_to_dict(logfile):
     '''
@@ -109,6 +120,28 @@ def log_to_dict(logfile):
         lines = content.readlines()
 
     nodes_list = [json.loads(l) for l in lines]
+
+    logger = logging.getLogger("gantt")
+    logger.setLevel(logging.DEBUG)
+    # logger.info("in log_to_dict: nodes_list=={}".format(nodes_list))
+
+    for node in nodes_list:
+        node['start'] = parse_time(node['start'])
+        node['finish'] = parse_time(node['finish'])
+        runtime_threads = node.get('runtime_threads', 0)
+        if runtime_threads > 20:
+            # assume that instead of number of threads
+            # the cpu-percentage was given
+            logger.debug("runtime threads was {}>20 ... assuming"
+                         " that it was a percentage!".format(runtime_threads))
+            node['runtime_threads'] = convert_percent_to_thread(runtime_threads)
+
+        else:
+            logger.debug("runtime threads was already <20 ... assuming"
+                         " that it already was a number not a percentage!")
+
+    #logger.info("in log_to_dict: nodes_list=={}".format(nodes_list))
+
 
     # Return list of nodes
     return nodes_list
@@ -378,8 +411,8 @@ def draw_resource_bar(start_time, finish_time, time_series,
 
 def generate_gantt_chart(logfile,
                          cores,
-                         minute_scale=10,
-                         space_between_minutes=50,
+                         minute_scale=None,
+                         space_between_minutes=None,
                          colors=["#7070FF", "#4E4EB2", "#2D2D66", "#9B9BFF"]):
     '''
     Generates a gantt chart in html showing the workflow execution based on a callback log file.
@@ -505,6 +538,13 @@ def generate_gantt_chart(logfile,
     start_node = nodes_list[0]
     last_node = nodes_list[-1]
     duration = (last_node['finish'] - start_node['start']).total_seconds()
+
+    logger = logging.getLogger("gantt")
+    logger.setLevel(logging.DEBUG)
+    minute_scale = minute_scale or min(10, round(duration / 60.0, 1)) or 0.3
+    space_between_minutes = space_between_minutes or min(max(50, (100/minute_scale)), 1000)
+    logger.debug("\nminute_scale: {}".format(minute_scale))
+    logger.debug("space_between_minutes: {}".format(space_between_minutes))
 
     # Get events based dictionary of node run stats
     events = create_event_dict(start_node['start'], nodes_list)
